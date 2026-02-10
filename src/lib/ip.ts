@@ -71,9 +71,8 @@ export function isLikelyPublicIp(ip: string): boolean {
   if (v === "ipv4") {
     const parts = ip.split(".").map((p) => Number(p));
     if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return false;
-    const [a, b, c, d] = parts;
-    void c;
-    void d;
+    const [a, b, c, _d] = parts;
+    void _d;
 
     // Common non-public / special-use ranges.
     if (a === 0) return false;
