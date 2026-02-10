@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Network Reactor",
-  description: "Minimal, modern internet diagnostics: page load, IP metadata, BGP/ASN, and speed tests.",
+  title: "My IP Metadata",
+  description: "Server-observed IP metadata with explicit trust labeling and optional enrichment.",
 };
 
 export default function RootLayout({
@@ -33,24 +33,18 @@ export default function RootLayout({
             <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
               <Link href="/" className="group inline-flex items-center gap-2">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/15">
-                  <span className="text-sm font-semibold tracking-tight">NR</span>
+                  <span className="text-sm font-semibold tracking-tight">IP</span>
                 </span>
                 <span className="text-sm font-semibold tracking-tight text-white/90 group-hover:text-white">
-                  Network Reactor
+                  My IP Metadata
                 </span>
               </Link>
               <nav className="hidden items-center gap-2 text-sm md:flex">
-                <Link href="/page-load" className="rounded-full px-3 py-1 text-white/70 hover:bg-white/10 hover:text-white">
-                  Page Load
-                </Link>
-                <Link href="/my-ip" className="rounded-full px-3 py-1 text-white/70 hover:bg-white/10 hover:text-white">
+                <Link href="/" className="rounded-full px-3 py-1 text-white/70 hover:bg-white/10 hover:text-white">
                   My IP
                 </Link>
-                <Link href="/bgp" className="rounded-full px-3 py-1 text-white/70 hover:bg-white/10 hover:text-white">
-                  BGP
-                </Link>
-                <Link href="/speedtest" className="rounded-full px-3 py-1 text-white/70 hover:bg-white/10 hover:text-white">
-                  Speed Test
+                <Link href="/my-ip" className="rounded-full px-3 py-1 text-white/70 hover:bg-white/10 hover:text-white">
+                  /my-ip
                 </Link>
               </nav>
             </div>
