@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import dns from "node:dns/promises";
-import { ipVersion, normalizeIp, parseForwardedForChain } from "@/lib/ip";
+import { ipVersion, isLikelyPublicIp, normalizeIp, parseForwardedForChain } from "@/lib/ip";
 import { safeJsonFetch } from "@/lib/safeFetch";
 
 export const dynamic = "force-dynamic";
@@ -98,13 +98,17 @@ export async function GET(req: NextRequest) {
 
   const ptr = clientIp !== "unknown" ? await reverseDns(clientIp) : null;
 
-  const enrichment = enrich
-    ? clientIp !== "unknown"
-      ? await safeJsonFetch<BgpViewIpResponse>(`https://api.bgpview.io/ip/${encodeURIComponent(clientIp)}`, {
-          timeoutMs: 4000,
-        })
-      : { ok: false as const, error: "unknown ip", fetchedAt: new Date().toISOString() }
-    : { ok: false as const, error: "skipped (enrich=0)", fetchedAt: new Date().toISOString() };
+  const allowEnrich = enrich && clientIp !== "unknown" && isLikelyPublicIp(clientIp);
+
+  const enrichment = allowEnrich
+    ? await safeJsonFetch<BgpViewIpResponse>(`https://api.bgpview.io/ip/${encodeURIComponent(clientIp)}`, {
+        timeoutMs: 4000,
+      })
+    : {
+        ok: false as const,
+        error: !enrich ? "skipped (enrich=0)" : clientIp === "unknown" ? "unknown ip" : "skipped (non-public ip)",
+        fetchedAt: new Date().toISOString(),
+      };
 
   const asn =
     enrichment.ok && enrichment.value?.data?.asn?.asn
@@ -131,11 +135,15 @@ export async function GET(req: NextRequest) {
       requestHeaders,
       proxyHeaders,
       reverseDns: { ptr, trust: "external" as const satisfies TrustLabel },
-      bgpview: enrich
+      bgpview: allowEnrich
         ? enrichment.ok
           ? { data: enrichment.value, fetchedAt: enrichment.fetchedAt, trust: "external" as const satisfies TrustLabel }
           : { error: enrichment.error, fetchedAt: enrichment.fetchedAt, trust: "external" as const satisfies TrustLabel }
-        : { skipped: true, trust: "external" as const satisfies TrustLabel },
+        : {
+            skipped: true,
+            reason: !enrich ? "enrich=0" : clientIp === "unknown" ? "unknown ip" : "non-public ip",
+            trust: "external" as const satisfies TrustLabel,
+          },
       asnSummary: { asn, trust: "external" as const satisfies TrustLabel },
       notes: [
         "Some request headers (User-Agent, Accept-Language) are client-controlled and spoofable.",

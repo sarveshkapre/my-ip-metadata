@@ -27,10 +27,15 @@ export async function safeJsonFetch<T>(
     const json = (await res.json()) as T;
     return { ok: true, value: json, fetchedAt };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    let msg = e instanceof Error ? e.message : String(e);
+    if (e instanceof Error) {
+      const maybe = e as unknown as { cause?: unknown };
+      const cause = maybe.cause as unknown as { code?: unknown; errno?: unknown } | undefined;
+      const code = cause?.code ?? cause?.errno;
+      if (typeof code === "string") msg = `${msg} (${code})`;
+    }
     return { ok: false, error: msg, fetchedAt };
   } finally {
     clearTimeout(t);
   }
 }
-
