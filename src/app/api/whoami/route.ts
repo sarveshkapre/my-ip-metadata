@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import dns from "node:dns/promises";
 import { ipVersion, isLikelyPublicIp, normalizeIp, parseForwardedForChain } from "@/lib/ip";
 import { safeJsonFetch } from "@/lib/safeFetch";
+import type { TrustLabel } from "@/lib/trust";
 
 export const dynamic = "force-dynamic";
 
@@ -19,20 +20,25 @@ type BgpViewIpResponse = {
 };
 
 async function reverseDns(ip: string): Promise<string[] | null> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     const res = await Promise.race([
       dns.reverse(ip),
-      new Promise<string[]>((_, reject) =>
-        setTimeout(() => reject(new Error("reverse dns timeout")), 1200),
-      ),
+      new Promise<string[]>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("reverse dns timeout")), 1200);
+      }),
     ]);
     return Array.isArray(res) ? res : null;
   } catch {
     return null;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
-type TrustLabel = "trusted" | "spoofable" | "external";
+function maybeRedact<T extends object>(show: boolean, value: T, trust: TrustLabel) {
+  return show ? { ...value, trust } : { redacted: true, trust };
+}
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -64,37 +70,40 @@ export async function GET(req: NextRequest) {
             : ("unknown" as const);
 
   const clientIpTrust: TrustLabel =
-    clientIpSource === "platform" ? "trusted" : clientIpSource === "unknown" ? "trusted" : "spoofable";
+    clientIpSource === "platform" || clientIpSource === "unknown" ? "trusted" : "spoofable";
 
   const timestamp = new Date().toISOString();
 
-  const requestHeaders = showHeaders
-    ? {
-        userAgent: headers.get("user-agent") ?? "",
-        acceptLanguage: headers.get("accept-language") ?? "",
-        trust: "spoofable" as const satisfies TrustLabel,
-      }
-    : { redacted: true, trust: "spoofable" as const satisfies TrustLabel };
+  const requestHeaders = maybeRedact(
+    showHeaders,
+    {
+      userAgent: headers.get("user-agent") ?? "",
+      acceptLanguage: headers.get("accept-language") ?? "",
+    },
+    "spoofable",
+  );
 
-  const proxyHeaders = showHeaders
-    ? {
-        cfConnectingIp: cf ?? "",
-        xRealIp: xri ?? "",
-        xForwardedFor: xff ?? "",
-        xForwardedForChain: xffChain,
-        trust: "spoofable" as const satisfies TrustLabel,
-      }
-    : { redacted: true, trust: "spoofable" as const satisfies TrustLabel };
+  const proxyHeaders = maybeRedact(
+    showHeaders,
+    {
+      cfConnectingIp: cf ?? "",
+      xRealIp: xri ?? "",
+      xForwardedFor: xff ?? "",
+      xForwardedForChain: xffChain,
+    },
+    "spoofable",
+  );
 
-  const ipCandidates = showHeaders
-    ? {
-        platformIp,
-        cfConnectingIp: cfIp,
-        xRealIp: xriIp,
-        xForwardedForChain: xffChain,
-        trust: "spoofable" as const satisfies TrustLabel,
-      }
-    : { redacted: true, trust: "spoofable" as const satisfies TrustLabel };
+  const ipCandidates = maybeRedact(
+    showHeaders,
+    {
+      platformIp,
+      cfConnectingIp: cfIp,
+      xRealIp: xriIp,
+      xForwardedForChain: xffChain,
+    },
+    "spoofable",
+  );
 
   const ptr = clientIp !== "unknown" ? await reverseDns(clientIp) : null;
 

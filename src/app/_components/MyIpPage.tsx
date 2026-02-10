@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-type TrustLabel = "trusted" | "spoofable" | "external";
+import type { TrustLabel } from "@/lib/trust";
 
 type WhoAmIResponse = {
   clientIp?: {
