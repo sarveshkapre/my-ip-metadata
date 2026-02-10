@@ -45,6 +45,7 @@
 - 2026-02-10 | `npm run build` | exit 0 | pass
 - 2026-02-10 | `bash -lc 'set -euo pipefail; PORT=3012; npm run dev -- --port $PORT >/tmp/my-ip-metadata-dev.log 2>&1 & pid=$!; cleanup(){ kill $pid 2>/dev/null || true; }; trap cleanup EXIT; ok=0; for i in $(seq 1 80); do if curl -sS "http://localhost:$PORT/api/whoami?enrich=1&showHeaders=0" >/dev/null 2>/dev/null; then ok=1; break; fi; sleep 0.25; done; if [ "$ok" != "1" ]; then echo "dev server did not come up"; tail -n 50 /tmp/my-ip-metadata-dev.log || true; exit 1; fi; curl -sS "http://localhost:$PORT/api/whoami?enrich=1&showHeaders=0" | node -e "let d=\\"\\";process.stdin.on(\\"data\\",c=>d+=c);process.stdin.on(\\"end\\",()=>{const j=JSON.parse(d);console.log(JSON.stringify({clientIp:j.clientIp,bgpview:j.bgpview},null,2));});"'` | `bgpview.skipped=true` with `reason="non-public ip"` on localhost | pass
 - 2026-02-10 | `curl -sS -I https://api.bgpview.io/ip/1.1.1.1` | `Could not resolve host: api.bgpview.io` | fail
+- 2026-02-10 | `gh run view 21865958291 --json status,conclusion` | `conclusion=success` | pass
 
 ## Historical Summary
 - Keep compact summaries of older entries here when file compaction runs.
