@@ -20,7 +20,7 @@
 - 2026-02-10: Safer response caching behavior: API responses use `Cache-Control: no-store` and `Pragma: no-cache`. Evidence: `src/app/api/whoami/route.ts`. Commits: `8842520`.
 - 2026-02-10: UX improvements for diagnostics: headline card, trust badges, Copy IP, Copy JSON, and Download JSON. Evidence: `src/app/_components/MyIpPage.tsx`. Commits: `8842520`.
 - 2026-02-10: Developer quality bar: add `npm run typecheck` and GitHub Actions CI running `npm ci`, `lint`, `typecheck`, `build`. Evidence: `.github/workflows/ci.yml`, `package.json`. Commits: `61b7047`.
-- 2026-02-10: Runnable smoke path documentation. Evidence: `docs/SMOKE.md`, `README.md`. Commits: (this cycle).
+- 2026-02-10: Runnable smoke path documentation. Evidence: `docs/SMOKE.md`, `README.md`. Commits: `aecbecb`.
 
 ## Insights
 ### Market Scan (Untrusted, Bounded)
