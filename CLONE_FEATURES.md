@@ -10,12 +10,12 @@
 
 ### Backlog (Next Up)
 - [ ] Add a compact “share link” view that defaults to `enrich=0&showHeaders=0` and provides a copyable URL. (impact high, effort medium, strategic fit high, differentiation medium, risk low, confidence medium)
-- [ ] Add minimal unit tests for `normalizeIp`, `parseForwardedForChain`, and `isLikelyPublicIp`. (impact medium, effort medium, strategic fit high, differentiation low, risk low, confidence medium)
 - [ ] Make enrichment provider configurable and add a fallback (or clearly surface “provider unreachable” diagnostics). (impact medium, effort medium, strategic fit medium, differentiation low, risk medium, confidence low)
 - [ ] Add VPN/hosting/mobile heuristics with confidence and clear “best-effort” labeling. (impact medium, effort high, strategic fit medium, differentiation medium, risk medium, confidence low)
 - [ ] Add abuse contact pointers / RIR metadata (later spec). (impact low, effort medium, strategic fit low, differentiation low, risk low, confidence medium)
 
 ## Implemented
+- 2026-02-10: Minimal unit tests for `normalizeIp`, `parseForwardedForChain`, `ipVersion`, and `isLikelyPublicIp` via `npm test` (tsx runner). Evidence: `scripts/test-ip.ts`, CI step in `.github/workflows/ci.yml`. Commits: `0fc5eb5`.
 - 2026-02-10: Trust labeling + privacy controls: `/api/whoami` now separates platform-derived vs spoofable headers vs external data; supports `enrich=0/1` and `showHeaders=0/1` with redaction. Evidence: `src/app/api/whoami/route.ts`, `src/app/_components/MyIpPage.tsx`, smoke in `docs/SMOKE.md`. Commits: `8842520`, `1a839f3`, `5992f7a`.
 - 2026-02-10: Safer response caching behavior: API responses use `Cache-Control: no-store` and `Pragma: no-cache`. Evidence: `src/app/api/whoami/route.ts`. Commits: `8842520`.
 - 2026-02-10: UX improvements for diagnostics: headline card, trust badges, Copy IP, Copy JSON, and Download JSON. Evidence: `src/app/_components/MyIpPage.tsx`. Commits: `8842520`.

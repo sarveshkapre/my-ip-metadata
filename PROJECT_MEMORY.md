@@ -24,6 +24,7 @@
 - 2026-02-10 | Expand trust labeling to `trusted/spoofable/external` and split platform-derived IP vs spoofable proxy/request headers; add `enrich` and `showHeaders` query params with redaction | Avoid misleading “trusted” labels, improve safe sharing, keep diagnostics useful | `npm run build` pass; smoke API calls | 8842520, 1a839f3, 5992f7a | high | trusted
 - 2026-02-10 | Avoid `useSearchParams()` in prerendered pages; parse `searchParams` in server `page.tsx` and pass as props to the client component | Keep `next build` stable while supporting query-string persistence | `npm run build` pass | 1a839f3 | high | trusted
 - 2026-02-10 | Add `typecheck` script and GitHub Actions CI (`npm ci`, `lint`, `typecheck`, `build`) | Catch regressions early and keep main green | `npm run typecheck` pass; CI workflow added | 61b7047 | high | trusted
+- 2026-02-10 | Add minimal unit coverage for IP parsing/public-IP detection and run it in CI via `npm test` | Improve confidence in core normalization logic without pulling in a heavy test framework | `npm test` pass; CI step added | 0fc5eb5 | high | trusted
 
 ## Mistakes And Fixes
 - Template: YYYY-MM-DD | Issue | Root cause | Fix | Prevention rule | Commit | Confidence
@@ -35,7 +36,6 @@
 
 ## Next Prioritized Tasks
 - Add “share link” view that defaults to `enrich=0&showHeaders=0`.
-- Add minimal unit tests for IP parsing/public-IP detection.
 - Consider enrichment fallback/config and surface clearer diagnostics when provider is unreachable.
 
 ## Verification Evidence
@@ -43,6 +43,7 @@
 - 2026-02-10 | `npm run lint` | exit 0 | pass
 - 2026-02-10 | `npm run typecheck` | exit 0 | pass
 - 2026-02-10 | `npm run build` | exit 0 | pass
+- 2026-02-10 | `npm test` | exit 0 | pass
 - 2026-02-10 | `bash -lc 'set -euo pipefail; PORT=3012; npm run dev -- --port $PORT >/tmp/my-ip-metadata-dev.log 2>&1 & pid=$!; cleanup(){ kill $pid 2>/dev/null || true; }; trap cleanup EXIT; ok=0; for i in $(seq 1 80); do if curl -sS "http://localhost:$PORT/api/whoami?enrich=1&showHeaders=0" >/dev/null 2>/dev/null; then ok=1; break; fi; sleep 0.25; done; if [ "$ok" != "1" ]; then echo "dev server did not come up"; tail -n 50 /tmp/my-ip-metadata-dev.log || true; exit 1; fi; curl -sS "http://localhost:$PORT/api/whoami?enrich=1&showHeaders=0" | node -e "let d=\\"\\";process.stdin.on(\\"data\\",c=>d+=c);process.stdin.on(\\"end\\",()=>{const j=JSON.parse(d);console.log(JSON.stringify({clientIp:j.clientIp,bgpview:j.bgpview},null,2));});"'` | `bgpview.skipped=true` with `reason="non-public ip"` on localhost | pass
 - 2026-02-10 | `curl -sS -I https://api.bgpview.io/ip/1.1.1.1` | `Could not resolve host: api.bgpview.io` | fail
 - 2026-02-10 | `gh run view 21865958291 --json status,conclusion` | `conclusion=success` | pass
