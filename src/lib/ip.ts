@@ -17,8 +17,8 @@ function isIPv6(input: string): boolean {
   const base = input.split("%")[0] ?? input;
   try {
     // URL() rejects invalid IPv6 strings.
-    // eslint-disable-next-line no-new
-    new URL(`http://[${base}]/`);
+    const u = new URL(`http://[${base}]/`);
+    void u;
     return true;
   } catch {
     return false;

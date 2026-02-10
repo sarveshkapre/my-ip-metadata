@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 
 type TrustLabel = "trusted" | "spoofable" | "external";
 
@@ -43,16 +42,24 @@ async function copyText(text: string) {
   await navigator.clipboard.writeText(text);
 }
 
-export default function MyIpPage() {
-  const router = useRouter();
-  const params = useSearchParams();
-
-  const enrich = params.get("enrich") !== "0";
-  const showHeaders = params.get("showHeaders") !== "0";
+export default function MyIpPage({
+  initialEnrich = true,
+  initialShowHeaders = true,
+}: {
+  initialEnrich?: boolean;
+  initialShowHeaders?: boolean;
+}) {
+  const [enrich, setEnrich] = useState<boolean>(initialEnrich);
+  const [showHeaders, setShowHeaders] = useState<boolean>(initialShowHeaders);
 
   const [data, setData] = useState<WhoAmIResponse | null>(null);
   const [err, setErr] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setEnrich(initialEnrich);
+    setShowHeaders(initialShowHeaders);
+  }, [initialEnrich, initialShowHeaders]);
 
   const load = useCallback(async (opts?: { enrich?: boolean; showHeaders?: boolean }) => {
     setLoading(true);
@@ -89,10 +96,12 @@ export default function MyIpPage() {
   const headlineOrg = asnSummary?.asn?.name ?? "";
 
   function replaceParams(next: { enrich: boolean; showHeaders: boolean }) {
-    const qs = new URLSearchParams(params.toString());
-    qs.set("enrich", next.enrich ? "1" : "0");
-    qs.set("showHeaders", next.showHeaders ? "1" : "0");
-    router.replace(`?${qs.toString()}`, { scroll: false });
+    if (typeof window === "undefined") return;
+    const u = new URL(window.location.href);
+    u.searchParams.set("enrich", next.enrich ? "1" : "0");
+    u.searchParams.set("showHeaders", next.showHeaders ? "1" : "0");
+    const qs = u.searchParams.toString();
+    window.history.replaceState({}, "", `${u.pathname}${qs ? `?${qs}` : ""}${u.hash}`);
   }
 
   async function downloadJson() {
@@ -157,6 +166,7 @@ export default function MyIpPage() {
               checked={enrich}
               onChange={(e) => {
                 const next = { enrich: e.target.checked, showHeaders };
+                setEnrich(next.enrich);
                 replaceParams(next);
                 void load(next);
               }}
@@ -171,6 +181,7 @@ export default function MyIpPage() {
               checked={showHeaders}
               onChange={(e) => {
                 const next = { enrich, showHeaders: e.target.checked };
+                setShowHeaders(next.showHeaders);
                 replaceParams(next);
                 void load(next);
               }}
