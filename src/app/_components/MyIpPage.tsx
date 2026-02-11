@@ -23,6 +23,7 @@ type WhoAmIResponse = {
   };
   reverseDns?: { ptr?: string[] | null; trust?: TrustLabel };
   bgpview?: unknown;
+  enrichmentDiagnostics?: unknown;
   requestHeaders?: unknown;
   proxyHeaders?: unknown;
   ipCandidates?: unknown;
@@ -54,21 +55,20 @@ export default function MyIpPage({
   const [data, setData] = useState<WhoAmIResponse | null>(null);
   const [err, setErr] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<string>("");
 
   useEffect(() => {
     setEnrich(initialEnrich);
     setShowHeaders(initialShowHeaders);
   }, [initialEnrich, initialShowHeaders]);
 
-  const load = useCallback(async (opts?: { enrich?: boolean; showHeaders?: boolean }) => {
+  const load = useCallback(async (opts: { enrich: boolean; showHeaders: boolean }) => {
     setLoading(true);
     setErr("");
     try {
-      const nextEnrich = opts?.enrich ?? enrich;
-      const nextShowHeaders = opts?.showHeaders ?? showHeaders;
       const qs = new URLSearchParams();
-      qs.set("enrich", nextEnrich ? "1" : "0");
-      qs.set("showHeaders", nextShowHeaders ? "1" : "0");
+      qs.set("enrich", opts.enrich ? "1" : "0");
+      qs.set("showHeaders", opts.showHeaders ? "1" : "0");
 
       const res = await fetch(`/api/whoami?${qs.toString()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -80,11 +80,11 @@ export default function MyIpPage({
     } finally {
       setLoading(false);
     }
-  }, [enrich, showHeaders]);
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load({ enrich, showHeaders });
+  }, [enrich, showHeaders, load]);
 
   const clientIp = useMemo(() => data?.clientIp ?? null, [data]);
   const asnSummary = useMemo(() => data?.asnSummary ?? null, [data]);
@@ -93,6 +93,11 @@ export default function MyIpPage({
   const headlineIp = clientIp?.ip ?? "unknown";
   const headlineAsn = asnSummary?.asn?.asn ?? null;
   const headlineOrg = asnSummary?.asn?.name ?? "";
+
+  function flashNotice(msg: string) {
+    setNotice(msg);
+    window.setTimeout(() => setNotice(""), 1800);
+  }
 
   function replaceParams(next: { enrich: boolean; showHeaders: boolean }) {
     if (typeof window === "undefined") return;
@@ -114,9 +119,23 @@ export default function MyIpPage({
       document.body.appendChild(a);
       a.click();
       a.remove();
+      flashNotice("Downloaded JSON");
     } finally {
       URL.revokeObjectURL(url);
     }
+  }
+
+  async function copyShareSafeLink() {
+    const next = { enrich: false, showHeaders: false };
+    setEnrich(next.enrich);
+    setShowHeaders(next.showHeaders);
+    replaceParams(next);
+    const u = new URL(window.location.href);
+    u.search = "";
+    u.searchParams.set("enrich", "0");
+    u.searchParams.set("showHeaders", "0");
+    await copyText(u.toString());
+    flashNotice("Share-safe link copied");
   }
 
   return (
@@ -130,21 +149,39 @@ export default function MyIpPage({
         <div className="flex flex-wrap items-center gap-2">
           <button
             className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white/85 ring-1 ring-white/15 hover:bg-white/15 disabled:opacity-50"
-            onClick={() => void load()}
+            onClick={() => void load({ enrich, showHeaders })}
             disabled={loading}
           >
             {loading ? "Refreshing…" : "Refresh"}
           </button>
           <button
+            className="rounded-full border border-emerald-300/30 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-500/20"
+            onClick={() => {
+              void copyShareSafeLink().catch((e) => {
+                setErr(e instanceof Error ? e.message : String(e));
+              });
+            }}
+          >
+            Copy Share-Safe Link
+          </button>
+          <button
             className="rounded-full border border-white/15 bg-black/10 px-4 py-2 text-sm font-medium text-white/75 hover:bg-white/10 disabled:opacity-50"
-            onClick={() => void copyText(headlineIp)}
+            onClick={() => {
+              void copyText(headlineIp)
+                .then(() => flashNotice("IP copied"))
+                .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+            }}
             disabled={!data || headlineIp === "unknown"}
           >
             Copy IP
           </button>
           <button
             className="rounded-full border border-white/15 bg-black/10 px-4 py-2 text-sm font-medium text-white/75 hover:bg-white/10 disabled:opacity-50"
-            onClick={() => void copyText(prettyJson(data))}
+            onClick={() => {
+              void copyText(prettyJson(data))
+                .then(() => flashNotice("JSON copied"))
+                .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+            }}
             disabled={!data}
           >
             Copy JSON
@@ -167,7 +204,6 @@ export default function MyIpPage({
                 const next = { enrich: e.target.checked, showHeaders };
                 setEnrich(next.enrich);
                 replaceParams(next);
-                void load(next);
               }}
             />
             <span>Enrichment</span>
@@ -182,7 +218,6 @@ export default function MyIpPage({
                 const next = { enrich, showHeaders: e.target.checked };
                 setShowHeaders(next.showHeaders);
                 replaceParams(next);
-                void load(next);
               }}
             />
             <span>Show headers</span>
@@ -192,6 +227,11 @@ export default function MyIpPage({
         {err ? (
           <div className="rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">
             {err}
+          </div>
+        ) : null}
+        {notice ? (
+          <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+            {notice}
           </div>
         ) : null}
       </header>
@@ -240,9 +280,6 @@ export default function MyIpPage({
             </div>
           </div>
         </Panel>
-        <Panel title="Notes">
-          <CodeBlock value={data?.notes ?? null} />
-        </Panel>
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -260,6 +297,15 @@ export default function MyIpPage({
         </Panel>
         <Panel title="Raw enrichment (external)">
           <CodeBlock value={data?.bgpview ?? null} />
+        </Panel>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Panel title="Enrichment diagnostics">
+          <CodeBlock value={data?.enrichmentDiagnostics ?? null} />
+        </Panel>
+        <Panel title="Notes">
+          <CodeBlock value={data?.notes ?? null} />
         </Panel>
       </section>
 

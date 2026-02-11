@@ -1,23 +1,10 @@
 import { NextRequest } from "next/server";
 import dns from "node:dns/promises";
+import { fetchEnrichmentWithFallback, resolveEnrichmentProviders } from "@/lib/enrichment";
 import { ipVersion, isLikelyPublicIp, normalizeIp, parseForwardedForChain } from "@/lib/ip";
-import { safeJsonFetch } from "@/lib/safeFetch";
 import type { TrustLabel } from "@/lib/trust";
 
 export const dynamic = "force-dynamic";
-
-type BgpViewIpResponse = {
-  data?: {
-    ip?: string;
-    prefix?: string;
-    asn?: {
-      asn?: number;
-      name?: string;
-      description_short?: string;
-      country_code?: string;
-    };
-  };
-};
 
 async function reverseDns(ip: string): Promise<string[] | null> {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -108,26 +95,14 @@ export async function GET(req: NextRequest) {
   const ptr = clientIp !== "unknown" ? await reverseDns(clientIp) : null;
 
   const allowEnrich = enrich && clientIp !== "unknown" && isLikelyPublicIp(clientIp);
-
+  const providerOrder = resolveEnrichmentProviders(process.env.WHOAMI_ENRICH_PROVIDERS);
+  const skippedReason = !enrich ? "enrich=0" : clientIp === "unknown" ? "unknown ip" : "non-public ip";
   const enrichment = allowEnrich
-    ? await safeJsonFetch<BgpViewIpResponse>(`https://api.bgpview.io/ip/${encodeURIComponent(clientIp)}`, {
-        timeoutMs: 4000,
-      })
-    : {
-        ok: false as const,
-        error: !enrich ? "skipped (enrich=0)" : clientIp === "unknown" ? "unknown ip" : "skipped (non-public ip)",
-        fetchedAt: new Date().toISOString(),
-      };
-
-  const asn =
-    enrichment.ok && enrichment.value?.data?.asn?.asn
-      ? {
-          asn: enrichment.value.data.asn.asn ?? null,
-          name: enrichment.value.data.asn.name ?? "",
-          description: enrichment.value.data.asn.description_short ?? "",
-          country: enrichment.value.data.asn.country_code ?? "",
-          prefix: enrichment.value.data.prefix ?? "",
-        }
+    ? await fetchEnrichmentWithFallback(clientIp, providerOrder)
+    : { provider: null, raw: null, asn: null, fetchedAt: null, attempts: [] };
+  const enrichmentError =
+    enrichment.provider === null && enrichment.attempts.length > 0
+      ? enrichment.attempts.map((a) => `${a.provider}: ${a.error ?? "unknown error"}`).join("; ")
       : null;
 
   return Response.json(
@@ -145,19 +120,44 @@ export async function GET(req: NextRequest) {
       proxyHeaders,
       reverseDns: { ptr, trust: "external" as const satisfies TrustLabel },
       bgpview: allowEnrich
-        ? enrichment.ok
-          ? { data: enrichment.value, fetchedAt: enrichment.fetchedAt, trust: "external" as const satisfies TrustLabel }
-          : { error: enrichment.error, fetchedAt: enrichment.fetchedAt, trust: "external" as const satisfies TrustLabel }
+        ? enrichment.provider
+          ? {
+              provider: enrichment.provider,
+              data: enrichment.raw,
+              fetchedAt: enrichment.fetchedAt,
+              trust: "external" as const satisfies TrustLabel,
+            }
+          : {
+              error: enrichmentError ?? "no enrichment providers succeeded",
+              fetchedAt: enrichment.attempts[enrichment.attempts.length - 1]?.fetchedAt ?? new Date().toISOString(),
+              trust: "external" as const satisfies TrustLabel,
+            }
         : {
             skipped: true,
-            reason: !enrich ? "enrich=0" : clientIp === "unknown" ? "unknown ip" : "non-public ip",
+            reason: skippedReason,
             trust: "external" as const satisfies TrustLabel,
           },
-      asnSummary: { asn, trust: "external" as const satisfies TrustLabel },
+      enrichmentDiagnostics: allowEnrich
+        ? {
+            attemptedProviders: providerOrder,
+            selectedProvider: enrichment.provider,
+            attempts: enrichment.attempts,
+            trust: "external" as const satisfies TrustLabel,
+          }
+        : {
+            attemptedProviders: [],
+            selectedProvider: null,
+            attempts: [],
+            skipped: true,
+            reason: skippedReason,
+            trust: "external" as const satisfies TrustLabel,
+          },
+      asnSummary: { asn: enrichment.asn, trust: "external" as const satisfies TrustLabel },
       notes: [
         "Some request headers (User-Agent, Accept-Language) are client-controlled and spoofable.",
         "Forwarded IP headers (X-Forwarded-For, X-Real-IP, CF-Connecting-IP) are spoofable unless set/overwritten by a trusted reverse proxy.",
         "Enrichment and reverse DNS are best-effort external data; treat as approximate.",
+        "Enrichment provider order can be configured by WHOAMI_ENRICH_PROVIDERS.",
         "This endpoint avoids cookies/credentials on outbound fetches.",
       ],
     },

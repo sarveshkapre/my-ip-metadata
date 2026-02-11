@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:unit": "tsx scripts/test-ip.ts",
+    "test:unit": "tsx scripts/test-ip.ts && tsx scripts/test-search-params.ts && tsx scripts/test-enrichment.ts",
     "test": "npm run test:unit"
   },
   "dependencies": {
