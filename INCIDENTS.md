@@ -13,6 +13,17 @@
 
 ## Entries
 
+### 2026-02-11: Route contract test failed due top-level await in CJS test runtime
+- Date: 2026-02-11
+- Trigger: `npm test` after adding `scripts/test-whoami-route.ts`
+- Impact: Unit test suite failed; changes were temporarily not shippable until test runner compatibility was fixed.
+- Root Cause: New test file used top-level `await`, but repo test scripts run through `tsx` in CommonJS mode where top-level await transform is unsupported.
+- Fix: Wrapped all async test calls in an explicit `main()` function and added a `.catch()` exit path.
+- Prevention Rule: Keep standalone repo test scripts CJS-compatible by default; only use top-level await after explicitly switching the runtime/module mode.
+- Evidence: Test error: “Top-level await is currently not supported with the `cjs` output format”; subsequent `npm test` passed.
+- Commit: 14eb3b2
+- Confidence: high
+
 ### 2026-02-11: Next.js 16 runtime warning for sync `searchParams` access
 - Date: 2026-02-11
 - Trigger: Local dev smoke (`npm run dev` + route hit)
