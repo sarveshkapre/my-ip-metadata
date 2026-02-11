@@ -14,6 +14,7 @@ export type EnrichmentAttempt = {
   provider: EnrichmentProvider;
   ok: boolean;
   fetchedAt: string;
+  durationMs: number;
   error?: string;
 };
 
@@ -118,10 +119,12 @@ export async function fetchEnrichmentWithFallback(
 ): Promise<EnrichmentResult> {
   const attempts: EnrichmentAttempt[] = [];
   for (const provider of providerOrder) {
+    const started = performance.now();
     if (provider === "bgpview") {
       const res = await fetchFromBgpView(ip);
+      const durationMs = Math.round(performance.now() - started);
       if (res.ok) {
-        attempts.push({ provider, ok: true, fetchedAt: res.fetchedAt });
+        attempts.push({ provider, ok: true, fetchedAt: res.fetchedAt, durationMs });
         return {
           provider,
           raw: res.value,
@@ -130,13 +133,14 @@ export async function fetchEnrichmentWithFallback(
           attempts,
         };
       }
-      attempts.push({ provider, ok: false, fetchedAt: res.fetchedAt, error: res.error });
+      attempts.push({ provider, ok: false, fetchedAt: res.fetchedAt, durationMs, error: res.error });
       continue;
     }
 
     const res = await fetchFromIpApi(ip);
+    const durationMs = Math.round(performance.now() - started);
     if (res.ok) {
-      attempts.push({ provider, ok: true, fetchedAt: res.fetchedAt });
+      attempts.push({ provider, ok: true, fetchedAt: res.fetchedAt, durationMs });
       return {
         provider,
         raw: res.value,
@@ -145,7 +149,7 @@ export async function fetchEnrichmentWithFallback(
         attempts,
       };
     }
-    attempts.push({ provider, ok: false, fetchedAt: res.fetchedAt, error: res.error });
+    attempts.push({ provider, ok: false, fetchedAt: res.fetchedAt, durationMs, error: res.error });
   }
 
   return {

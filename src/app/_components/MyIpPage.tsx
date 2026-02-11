@@ -38,8 +38,39 @@ function prettyJson(v: unknown) {
   }
 }
 
-async function copyText(text: string) {
-  await navigator.clipboard.writeText(text);
+function legacyCopyText(text: string): boolean {
+  if (typeof document === "undefined") return false;
+  const el = document.createElement("textarea");
+  el.value = text;
+  el.setAttribute("readonly", "");
+  el.style.position = "fixed";
+  el.style.top = "-9999px";
+  el.style.left = "-9999px";
+  document.body.appendChild(el);
+  el.focus();
+  el.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  el.remove();
+  return ok;
+}
+
+async function copyText(text: string): Promise<"clipboard" | "fallback"> {
+  const canUseClipboardApi =
+    typeof navigator !== "undefined" &&
+    typeof window !== "undefined" &&
+    window.isSecureContext &&
+    typeof navigator.clipboard?.writeText === "function";
+  if (canUseClipboardApi) {
+    await navigator.clipboard.writeText(text);
+    return "clipboard";
+  }
+  if (legacyCopyText(text)) return "fallback";
+  throw new Error("Clipboard unavailable in this browser context");
 }
 
 export default function MyIpPage({
@@ -134,8 +165,8 @@ export default function MyIpPage({
     u.search = "";
     u.searchParams.set("enrich", "0");
     u.searchParams.set("showHeaders", "0");
-    await copyText(u.toString());
-    flashNotice("Share-safe link copied");
+    const strategy = await copyText(u.toString());
+    flashNotice(strategy === "fallback" ? "Share-safe link copied (fallback)" : "Share-safe link copied");
   }
 
   return (
@@ -168,7 +199,7 @@ export default function MyIpPage({
             className="rounded-full border border-white/15 bg-black/10 px-4 py-2 text-sm font-medium text-white/75 hover:bg-white/10 disabled:opacity-50"
             onClick={() => {
               void copyText(headlineIp)
-                .then(() => flashNotice("IP copied"))
+                .then((strategy) => flashNotice(strategy === "fallback" ? "IP copied (fallback)" : "IP copied"))
                 .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
             }}
             disabled={!data || headlineIp === "unknown"}
@@ -179,7 +210,7 @@ export default function MyIpPage({
             className="rounded-full border border-white/15 bg-black/10 px-4 py-2 text-sm font-medium text-white/75 hover:bg-white/10 disabled:opacity-50"
             onClick={() => {
               void copyText(prettyJson(data))
-                .then(() => flashNotice("JSON copied"))
+                .then((strategy) => flashNotice(strategy === "fallback" ? "JSON copied (fallback)" : "JSON copied"))
                 .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
             }}
             disabled={!data}
