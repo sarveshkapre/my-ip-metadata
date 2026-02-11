@@ -13,6 +13,17 @@
 
 ## Entries
 
+### 2026-02-11: Next.js 16 runtime warning for sync `searchParams` access
+- Date: 2026-02-11
+- Trigger: Local dev smoke (`npm run dev` + route hit)
+- Impact: Runtime warnings in app routes; increased risk of future framework breakage/regression.
+- Root Cause: `/` and `/my-ip` server page components treated `searchParams` as synchronous object instead of awaiting promise-like value in Next.js 16 runtime.
+- Fix: Converted both pages to async server components and `await searchParams` before flag parsing.
+- Prevention Rule: On framework upgrades, run a real `next dev` smoke pass and treat runtime warnings as blocking quality issues even when `next build` succeeds.
+- Evidence: Dev warning string “searchParams is a Promise...” observed before fix; post-fix smoke log check returned `no_searchparams_warning`.
+- Commit: f5c2c36
+- Confidence: high
+
 ### 2026-02-10: Next build failed due to `useSearchParams()` without Suspense
 - Date: 2026-02-10
 - Trigger: `npm run build`
