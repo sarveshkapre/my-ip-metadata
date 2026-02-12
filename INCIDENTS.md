@@ -45,3 +45,14 @@
 - Evidence: Build error message “missing suspense boundary” during `next build`; subsequent `npm run build` passed.
 - Commit: 1a839f3
 - Confidence: high
+
+### 2026-02-12T20:01:49Z | Codex execution failure
+- Date: 2026-02-12T20:01:49Z
+- Trigger: Codex execution failure
+- Impact: Repo session did not complete cleanly
+- Root Cause: codex exec returned a non-zero status
+- Fix: Captured failure logs and kept repository in a recoverable state
+- Prevention Rule: Re-run with same pass context and inspect pass log before retrying
+- Evidence: pass_log=logs/20260212-101456-my-ip-metadata-cycle-2.log
+- Commit: pending
+- Confidence: medium
